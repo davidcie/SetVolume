@@ -43,7 +43,7 @@ void SetVolume(IAudioEndpointVolume *endpoint, float volume)
 	printf("Setting volume to: %.0f%%\n", volume * 100);
 	hr = endpoint->SetMasterVolumeLevelScalar(volume, nullptr);
 	if (hr != S_OK) {
-		printf("Unable to set master volume (error code: 0x%08lx\n", hr);
+		printf("Unable to set master volume (error code: 0x%08lx)\n", hr);
 		endpoint->Release();
 		CoUninitialize();
 		exit(-1);
@@ -57,7 +57,7 @@ float GetVolume(IAudioEndpointVolume *endpoint)
 
 	hr = endpoint->GetMasterVolumeLevelScalar(&volume);
 	if (hr != S_OK) {
-		printf("Unable to get master volume (error code: 0x%08lx\n", hr);
+		printf("Unable to get master volume (error code: 0x%08lx)\n", hr);
 		endpoint->Release();
 		CoUninitialize();
 		exit(-1);
@@ -94,7 +94,7 @@ int main(int argc, CHAR* argv[])
 	IMMDeviceEnumerator *deviceEnumerator = nullptr;
 	hr = CoCreateInstance(__uuidof(MMDeviceEnumerator), nullptr, CLSCTX_INPROC_SERVER, __uuidof(IMMDeviceEnumerator), (LPVOID *)&deviceEnumerator);
 	if (hr != S_OK) {
-		printf("Unable to create instance of MMDeviceEnumerator (error code: 0x%08lx\n", hr);
+		printf("Unable to create instance of MMDeviceEnumerator (error code: 0x%08lx)\n", hr);
 		CoUninitialize();
 		exit(-1);
 	}
@@ -105,7 +105,7 @@ int main(int argc, CHAR* argv[])
 	deviceEnumerator->Release();
 	deviceEnumerator = nullptr;
 	if (hr != S_OK) {
-		printf("Unable to get default audio endpoint (error code: 0x%08lx\n", hr);
+		printf("Unable to get default audio endpoint (error code: 0x%08lx)\n", hr);
 		CoUninitialize();
 		exit(-1);
 	}
@@ -116,7 +116,7 @@ int main(int argc, CHAR* argv[])
 	defaultDevice->Release();
 	defaultDevice = nullptr;
 	if (hr != S_OK) {
-		printf("Unable to get default audio volume controller (error code: 0x%08lx\n", hr);
+		printf("Unable to get default audio volume controller (error code: 0x%08lx)\n", hr);
 		CoUninitialize();
 		exit(-1);
 	}
