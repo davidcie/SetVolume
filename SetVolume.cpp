@@ -34,36 +34,10 @@ void DisplayUsageAndExit()
 	printf(" SetVolume set <percent>  Sets current default playback device volume in percentage.\n");
 	printf(" SetVolume set +<percent> Increases default playback device volume by a specified percentage.\n");
 	printf(" SetVolume set -<percent> Decreases default playback device volume by a specified percentage.\n");
+	printf(" SetVolume mute           Mute default playback device.\n");
+	printf(" SetVolume unmute         Unmute default playback device.\n");
+	printf(" SetVolume togglemute     Toggle mute for default playback device.\n");
 	exit(1);
-}
-
-void SetVolume(IAudioEndpointVolume *endpoint, float volume)
-{
-	HRESULT hr;
-
-	printf("Setting volume to: %.0f%%\n", volume * 100);
-	hr = endpoint->SetMasterVolumeLevelScalar(volume, nullptr);
-	if (hr != S_OK) {
-		printf("Unable to set master volume (error code: 0x%08lx)\n", hr);
-		endpoint->Release();
-		CoUninitialize();
-		exit(-1);
-	}
-}
-
-float GetVolume(IAudioEndpointVolume *endpoint)
-{
-	HRESULT hr;
-	float volume = 0;
-
-	hr = endpoint->GetMasterVolumeLevelScalar(&volume);
-	if (hr != S_OK) {
-		printf("Unable to get master volume (error code: 0x%08lx)\n", hr);
-		endpoint->Release();
-		CoUninitialize();
-		exit(-1);
-	}
-	return volume;
 }
 
 void InitializeAudioEndpoint(IAudioEndpointVolume **audioEndpoint) 
@@ -105,9 +79,59 @@ void InitializeAudioEndpoint(IAudioEndpointVolume **audioEndpoint)
 	}
 }
 
-void DestroyAudioEndpoint(IAudioEndpointVolume *endpointVolume) {
+void DestroyAudioEndpoint(IAudioEndpointVolume *endpointVolume) 
+{
 	endpointVolume->Release();
 	CoUninitialize();
+}
+
+void SetVolume(IAudioEndpointVolume *endpoint, float volume)
+{
+	HRESULT hr;
+	printf("Setting volume to: %.0f%%\n", volume * 100);
+	hr = endpoint->SetMasterVolumeLevelScalar(volume, nullptr);
+	if (hr != S_OK) {
+		printf("Unable to set master volume (error code: 0x%08lx)\n", hr);
+		DestroyAudioEndpoint(endpoint);
+		exit(-1);
+	}
+}
+
+float GetVolume(IAudioEndpointVolume *endpoint)
+{
+	HRESULT hr;
+	float volume = 0;
+	hr = endpoint->GetMasterVolumeLevelScalar(&volume);
+	if (hr != S_OK) {
+		printf("Unable to get master volume (error code: 0x%08lx)\n", hr);
+		DestroyAudioEndpoint(endpoint);
+		exit(-1);
+	}
+	return volume;
+}
+
+void SetMute(IAudioEndpointVolume *endpoint, BOOL newValue)
+{
+	HRESULT hr;
+	hr = endpoint->SetMute(newValue, nullptr);
+	if (hr != S_OK) {
+		printf("Unable to set mute (error code: 0x%08lx)\n", hr);
+		DestroyAudioEndpoint(endpoint);
+		exit(-1);
+	}
+}
+
+BOOL GetMute(IAudioEndpointVolume *endpoint)
+{
+	HRESULT hr;
+	BOOL value;
+	hr = endpoint->GetMute(&value);
+	if (hr != S_OK) {
+		printf("Unable to get mute status (error code: 0x%08lx)\n", hr);
+		DestroyAudioEndpoint(endpoint);
+		exit(-1);
+	}
+	return value;
 }
 
 int main(int argc, CHAR* argv[])
@@ -137,6 +161,17 @@ int main(int argc, CHAR* argv[])
 		if (newVolume < 0) newVolume = 0;
 		if (newVolume > 1) newVolume = 1;
 		SetVolume(endpointVolume, newVolume);
+	} else if (argc == 2 && strcmp(argv[1], "mute") == 0) {
+		BOOL currentValue = GetMute(endpointVolume);
+		if (currentValue != TRUE)
+			SetMute(endpointVolume, TRUE);
+	} else if (argc == 2 && strcmp(argv[1], "unmute") == 0) {
+		BOOL currentValue = GetMute(endpointVolume);
+		if (currentValue != FALSE)
+			SetMute(endpointVolume, FALSE);
+	} else if (argc == 2 && strcmp(argv[1], "togglemute") == 0) {
+		BOOL currentValue = GetMute(endpointVolume);
+		SetMute(endpointVolume, !currentValue);
 	}
 
 	// Cleanup
