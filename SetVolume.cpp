@@ -34,7 +34,7 @@ void DisplayUsageAndExit()
 	printf(" SetVolume set <percent>  Sets current default playback device volume in percentage.\n");
 	printf(" SetVolume set +<percent> Increases default playback device volume by a specified percentage.\n");
 	printf(" SetVolume set -<percent> Decreases default playback device volume by a specified percentage.\n");
-	exit(-1);
+	exit(1);
 }
 
 void SetVolume(IAudioEndpointVolume *endpoint, float volume)
@@ -66,15 +66,9 @@ float GetVolume(IAudioEndpointVolume *endpoint)
 	return volume;
 }
 
-int main(int argc, CHAR* argv[])
+void InitializeAudioEndpoint(IAudioEndpointVolume **audioEndpoint) 
 {
 	HRESULT hr;
-	float newVolume = 0;
-
-	// Exit early if only displaying help
-	if (argc == 1 || argc > 1 && strcmp(argv[1], "help") == 0) {
-		DisplayUsageAndExit();
-	}
 
 	// Initialize the COM library
 	CoInitialize(nullptr);
@@ -100,8 +94,8 @@ int main(int argc, CHAR* argv[])
 	}
 	
 	// Ask default audio renderer for volume controller
-	IAudioEndpointVolume *endpointVolume = nullptr;
-	hr = defaultDevice->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_INPROC_SERVER, nullptr, (LPVOID *)&endpointVolume);
+	//IAudioEndpointVolume *endpointVolume = nullptr;
+	hr = defaultDevice->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_INPROC_SERVER, nullptr, (LPVOID *)audioEndpoint);
 	defaultDevice->Release();
 	defaultDevice = nullptr;
 	if (hr != S_OK) {
@@ -109,10 +103,29 @@ int main(int argc, CHAR* argv[])
 		CoUninitialize();
 		exit(-1);
 	}
+}
+
+void DestroyAudioEndpoint(IAudioEndpointVolume *endpointVolume) {
+	endpointVolume->Release();
+	CoUninitialize();
+}
+
+int main(int argc, CHAR* argv[])
+{
+	HRESULT hr;
+	float newVolume = 0;
+	IAudioEndpointVolume *endpointVolume = nullptr;
+
+	// Exit early if only displaying help
+	if (argc == 1 || argc > 1 && strcmp(argv[1], "help") == 0) {
+		DisplayUsageAndExit();
+	}
+
+	// Find devices for manipulating mixer volumes
+	InitializeAudioEndpoint(&endpointVolume);
 
 	// Parse command line arguments and perform actions
-	if (argc == 2 && strcmp(argv[1], "get") == 0)
-	{
+	if (argc == 2 && strcmp(argv[1], "get") == 0) {
 		printf("%.0f\n", GetVolume(endpointVolume) * 100);
 	} else if (argc == 3 && strcmp(argv[1], "set") == 0) {
 		newVolume = strtof(argv[2], nullptr) / 100;
@@ -126,9 +139,7 @@ int main(int argc, CHAR* argv[])
 		SetVolume(endpointVolume, newVolume);
 	}
 
-	// Release resources
-	endpointVolume->Release();
-	CoUninitialize();
-
+	// Cleanup
+	DestroyAudioEndpoint(endpointVolume);
 	return 0;
 }
