@@ -18,7 +18,7 @@
 #define WINVER       _WIN32_WINNT_VISTA
 #define _WIN32_WINNT _WIN32_WINNT_VISTA
 
-#define VERSION_MAJOR 1
+#define VERSION_MAJOR 2
 #define VERSION_MINOR 0
 
 #include <cstdio>
@@ -26,75 +26,23 @@
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
 
-using namespace std;
-
-enum VOLUME_OPERATION {
-	VOL_CHECK,
-	VOL_CHANGE,
-	VOL_SET
-};
-
 void DisplayUsageAndExit()
 {
 	printf("SetVolume v%d.%d\n", VERSION_MAJOR, VERSION_MINOR);
 	printf("Usage: \n");
-	printf(" SetVolume [Reports the current default playback device volume as a percentage]\n");
-	printf(" SetVolume <percent> [Sets the current default playback device volume]\n");
-	printf(" SetVolume +<percent> [Increases default playback device volume by a specified percentage]\n");
-	printf(" SetVolume -<percent> [Decreases default playback device volume by a specified percentage]\n");
-	exit(-1);
+	printf(" SetVolume get            Reports current default playback device volume as a percentage.\n");
+	printf(" SetVolume set <percent>  Sets current default playback device volume in percentage.\n");
+	printf(" SetVolume set +<percent> Increases default playback device volume by a specified percentage.\n");
+	printf(" SetVolume set -<percent> Decreases default playback device volume by a specified percentage.\n");
+	printf(" SetVolume mute           Mute default playback device.\n");
+	printf(" SetVolume unmute         Unmute default playback device.\n");
+	printf(" SetVolume togglemute     Toggle mute for default playback device.\n");
+	exit(1);
 }
 
-void SetVolume(IAudioEndpointVolume *endpoint, float volume)
+void InitializeAudioEndpoint(IAudioEndpointVolume **audioEndpoint) 
 {
 	HRESULT hr;
-
-	printf("Setting volume to: %.0f%%\n", volume * 100);
-	hr = endpoint->SetMasterVolumeLevelScalar(volume, nullptr);
-	if (hr != S_OK) {
-		printf("Unable to set master volume (error code: 0x%08lx)\n", hr);
-		endpoint->Release();
-		CoUninitialize();
-		exit(-1);
-	}
-}
-
-float GetVolume(IAudioEndpointVolume *endpoint)
-{
-	HRESULT hr;
-	float volume = 0;
-
-	hr = endpoint->GetMasterVolumeLevelScalar(&volume);
-	if (hr != S_OK) {
-		printf("Unable to get master volume (error code: 0x%08lx)\n", hr);
-		endpoint->Release();
-		CoUninitialize();
-		exit(-1);
-	}
-	return volume;
-}
-
-int main(int argc, CHAR* argv[])
-{
-	HRESULT hr;
-	VOLUME_OPERATION operation = VOL_CHECK;
-	float newVolume = 0;
-
-	if (argc != 2 && argc != 1)
-	{
-		DisplayUsageAndExit();
-	}
-	
-	if (argc == 2)
-	{
-		newVolume = strtof(argv[1], nullptr) / 100;
-
-		if (argv[1][0] == '+' || argv[1][0] == '-') {
-			operation = VOL_CHANGE;
-		} else {
-			operation = VOL_SET;
-		}
-	}
 
 	// Initialize the COM library
 	CoInitialize(nullptr);
@@ -120,8 +68,8 @@ int main(int argc, CHAR* argv[])
 	}
 	
 	// Ask default audio renderer for volume controller
-	IAudioEndpointVolume *endpointVolume = nullptr;
-	hr = defaultDevice->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_INPROC_SERVER, nullptr, (LPVOID *)&endpointVolume);
+	//IAudioEndpointVolume *endpointVolume = nullptr;
+	hr = defaultDevice->Activate(__uuidof(IAudioEndpointVolume), CLSCTX_INPROC_SERVER, nullptr, (LPVOID *)audioEndpoint);
 	defaultDevice->Release();
 	defaultDevice = nullptr;
 	if (hr != S_OK) {
@@ -129,23 +77,104 @@ int main(int argc, CHAR* argv[])
 		CoUninitialize();
 		exit(-1);
 	}
+}
 
-	// Do whatever user wanted to do
-	if (operation == VOL_CHECK) {
-		printf("Current volume: %.0f\n", GetVolume(endpointVolume) * 100);
-	} else if (operation == VOL_SET) {
-		if (newVolume < 0 || newVolume > 1) DisplayUsageAndExit();
-		SetVolume(endpointVolume, newVolume);
-	} else if (operation == VOL_CHANGE) {
-		newVolume += GetVolume(endpointVolume);
+void DestroyAudioEndpoint(IAudioEndpointVolume *endpointVolume) 
+{
+	endpointVolume->Release();
+	CoUninitialize();
+}
+
+void SetVolume(IAudioEndpointVolume *endpoint, float volume)
+{
+	HRESULT hr;
+	printf("Setting volume to: %.0f%%\n", volume * 100);
+	hr = endpoint->SetMasterVolumeLevelScalar(volume, nullptr);
+	if (hr != S_OK) {
+		printf("Unable to set master volume (error code: 0x%08lx)\n", hr);
+		DestroyAudioEndpoint(endpoint);
+		exit(-1);
+	}
+}
+
+float GetVolume(IAudioEndpointVolume *endpoint)
+{
+	HRESULT hr;
+	float volume = 0;
+	hr = endpoint->GetMasterVolumeLevelScalar(&volume);
+	if (hr != S_OK) {
+		printf("Unable to get master volume (error code: 0x%08lx)\n", hr);
+		DestroyAudioEndpoint(endpoint);
+		exit(-1);
+	}
+	return volume;
+}
+
+void SetMute(IAudioEndpointVolume *endpoint, BOOL newValue)
+{
+	HRESULT hr;
+	hr = endpoint->SetMute(newValue, nullptr);
+	if (hr != S_OK) {
+		printf("Unable to set mute (error code: 0x%08lx)\n", hr);
+		DestroyAudioEndpoint(endpoint);
+		exit(-1);
+	}
+}
+
+BOOL GetMute(IAudioEndpointVolume *endpoint)
+{
+	HRESULT hr;
+	BOOL value;
+	hr = endpoint->GetMute(&value);
+	if (hr != S_OK) {
+		printf("Unable to get mute status (error code: 0x%08lx)\n", hr);
+		DestroyAudioEndpoint(endpoint);
+		exit(-1);
+	}
+	return value;
+}
+
+int main(int argc, CHAR* argv[])
+{
+	HRESULT hr;
+	float newVolume = 0;
+	IAudioEndpointVolume *endpointVolume = nullptr;
+
+	// Exit early if only displaying help
+	if (argc == 1 || argc > 1 && strcmp(argv[1], "help") == 0) {
+		DisplayUsageAndExit();
+	}
+
+	// Find devices for manipulating mixer volumes
+	InitializeAudioEndpoint(&endpointVolume);
+
+	// Parse command line arguments and perform actions
+	if (argc == 2 && strcmp(argv[1], "get") == 0) {
+		printf("%.0f\n", GetVolume(endpointVolume) * 100);
+	} else if (argc == 3 && strcmp(argv[1], "set") == 0) {
+		newVolume = strtof(argv[2], nullptr) / 100;
+
+		if (argv[2][0] == '+' || argv[2][0] == '-') {
+			newVolume += GetVolume(endpointVolume);
+		}
+
 		if (newVolume < 0) newVolume = 0;
 		if (newVolume > 1) newVolume = 1;
 		SetVolume(endpointVolume, newVolume);
+	} else if (argc == 2 && strcmp(argv[1], "mute") == 0) {
+		BOOL currentValue = GetMute(endpointVolume);
+		if (currentValue != TRUE)
+			SetMute(endpointVolume, TRUE);
+	} else if (argc == 2 && strcmp(argv[1], "unmute") == 0) {
+		BOOL currentValue = GetMute(endpointVolume);
+		if (currentValue != FALSE)
+			SetMute(endpointVolume, FALSE);
+	} else if (argc == 2 && strcmp(argv[1], "togglemute") == 0) {
+		BOOL currentValue = GetMute(endpointVolume);
+		SetMute(endpointVolume, !currentValue);
 	}
 
-	// Release resources
-	endpointVolume->Release();
-	CoUninitialize();
-
+	// Cleanup
+	DestroyAudioEndpoint(endpointVolume);
 	return 0;
 }
