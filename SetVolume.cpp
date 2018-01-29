@@ -15,10 +15,15 @@
 
 **/
 
-#include <stdio.h>
+#define WINVER       _WIN32_WINNT_VISTA
+#define _WIN32_WINNT _WIN32_WINNT_VISTA
+
+#include <cstdio>
 #include <windows.h>
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
+
+using namespace std;
 
 enum VOLUME_OPERATION {
 	VOL_CHECK,
@@ -78,7 +83,7 @@ int main(int argc, CHAR* argv[])
 	
 	if (argc == 2)
 	{
-		newVolume = atof(argv[1]) / 100;
+		newVolume = strtof(argv[1], nullptr) / 100;
 
 		if (argv[1][0] == '+' || argv[1][0] == '-') {
 			operation = VOL_CHANGE;
