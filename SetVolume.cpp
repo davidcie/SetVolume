@@ -18,7 +18,7 @@
 #define WINVER       _WIN32_WINNT_VISTA
 #define _WIN32_WINNT _WIN32_WINNT_VISTA
 
-#define VERSION_MAJOR 1
+#define VERSION_MAJOR 2
 #define VERSION_MINOR 0
 
 #include <cstdio>
@@ -26,22 +26,14 @@
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
 
-using namespace std;
-
-enum VOLUME_OPERATION {
-	VOL_CHECK,
-	VOL_CHANGE,
-	VOL_SET
-};
-
 void DisplayUsageAndExit()
 {
 	printf("SetVolume v%d.%d\n", VERSION_MAJOR, VERSION_MINOR);
 	printf("Usage: \n");
-	printf(" SetVolume [Reports the current default playback device volume as a percentage]\n");
-	printf(" SetVolume <percent> [Sets the current default playback device volume]\n");
-	printf(" SetVolume +<percent> [Increases default playback device volume by a specified percentage]\n");
-	printf(" SetVolume -<percent> [Decreases default playback device volume by a specified percentage]\n");
+	printf(" SetVolume get            Reports current default playback device volume as a percentage.\n");
+	printf(" SetVolume set <percent>  Sets current default playback device volume in percentage.\n");
+	printf(" SetVolume set +<percent> Increases default playback device volume by a specified percentage.\n");
+	printf(" SetVolume set -<percent> Decreases default playback device volume by a specified percentage.\n");
 	exit(-1);
 }
 
@@ -77,23 +69,11 @@ float GetVolume(IAudioEndpointVolume *endpoint)
 int main(int argc, CHAR* argv[])
 {
 	HRESULT hr;
-	VOLUME_OPERATION operation = VOL_CHECK;
 	float newVolume = 0;
 
-	if (argc != 2 && argc != 1)
-	{
+	// Exit early if only displaying help
+	if (argc == 1 || argc > 1 && strcmp(argv[1], "help") == 0) {
 		DisplayUsageAndExit();
-	}
-	
-	if (argc == 2)
-	{
-		newVolume = strtof(argv[1], nullptr) / 100;
-
-		if (argv[1][0] == '+' || argv[1][0] == '-') {
-			operation = VOL_CHANGE;
-		} else {
-			operation = VOL_SET;
-		}
 	}
 
 	// Initialize the COM library
@@ -130,14 +110,17 @@ int main(int argc, CHAR* argv[])
 		exit(-1);
 	}
 
-	// Do whatever user wanted to do
-	if (operation == VOL_CHECK) {
-		printf("Current volume: %.0f\n", GetVolume(endpointVolume) * 100);
-	} else if (operation == VOL_SET) {
-		if (newVolume < 0 || newVolume > 1) DisplayUsageAndExit();
-		SetVolume(endpointVolume, newVolume);
-	} else if (operation == VOL_CHANGE) {
-		newVolume += GetVolume(endpointVolume);
+	// Parse command line arguments and perform actions
+	if (argc == 2 && strcmp(argv[1], "get") == 0)
+	{
+		printf("%.0f\n", GetVolume(endpointVolume) * 100);
+	} else if (argc == 3 && strcmp(argv[1], "set") == 0) {
+		newVolume = strtof(argv[2], nullptr) / 100;
+
+		if (argv[2][0] == '+' || argv[2][0] == '-') {
+			newVolume += GetVolume(endpointVolume);
+		}
+
 		if (newVolume < 0) newVolume = 0;
 		if (newVolume > 1) newVolume = 1;
 		SetVolume(endpointVolume, newVolume);
