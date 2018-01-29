@@ -18,6 +18,9 @@
 #define WINVER       _WIN32_WINNT_VISTA
 #define _WIN32_WINNT _WIN32_WINNT_VISTA
 
+#define VERSION_MAJOR 1
+#define VERSION_MINOR 0
+
 #include <cstdio>
 #include <windows.h>
 #include <mmdeviceapi.h>
@@ -33,6 +36,7 @@ enum VOLUME_OPERATION {
 
 void DisplayUsageAndExit()
 {
+	printf("SetVolume v%d.%d\n", VERSION_MAJOR, VERSION_MINOR);
 	printf("Usage: \n");
 	printf(" SetVolume [Reports the current default playback device volume as a percentage]\n");
 	printf(" SetVolume <percent> [Sets the current default playback device volume]\n");
